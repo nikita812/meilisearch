@@ -117,7 +117,7 @@ impl From<Details> for DetailsView {
                 indexed_documents,
             } => DetailsView {
                 received_documents: Some(received_documents),
-                indexed_documents: Some(indexed_documents),
+                indexed_documents,
                 ..DetailsView::default()
             },
             Details::Settings { settings } => DetailsView {
@@ -240,7 +240,11 @@ async fn get_tasks(
     let limit = limit.saturating_add(1);
     filters.limit = limit;
 
-    let mut tasks_results: Vec<_> = index_scheduler.get_tasks(filters)?.into_iter().collect();
+    let mut tasks_results: Vec<_> = index_scheduler
+        .get_tasks(filters)?
+        .into_iter()
+        .map(TaskView::from)
+        .collect();
 
     // If we were able to fetch the number +1 tasks we asked
     // it means that there is more to come.
@@ -287,7 +291,8 @@ async fn get_task(
 
     filters.uid = Some(vec![task_id]);
 
-    if let Some(task) = index_scheduler.get_tasks(filters)?.first() {
+    if let Some(task) = index_scheduler.get_tasks(filters)?.into_iter().next() {
+        let task: TaskView = task.into();
         Ok(HttpResponse::Ok().json(task))
     } else {
         Err(index_scheduler::Error::TaskNotFound(task_id).into())
